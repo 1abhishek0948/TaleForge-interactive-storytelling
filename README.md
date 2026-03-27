@@ -37,6 +37,14 @@ python manage.py runserver
 
 Backend runs at `http://127.0.0.1:8000`.
 
+Demo login accounts:
+- `demo_user / demoxyz12@`
+- `moderator_user / moderatorxyz34@`
+- `admin_user / adminxyz56@`
+
+The backend can auto-create these users on login if `ENABLE_DEMO_LOGIN_USERS=true`.
+`moderator_user` and `admin_user` can edit/manage all stories, nodes, and choices.
+
 ### 2) Frontend
 
 ```bash
@@ -50,82 +58,72 @@ Frontend runs at `http://localhost:5173`.
 
 ---
 
-## Railway Deployment (GitHub)
+## Render Deployment (GitHub + Render Postgres)
 
-This repo is ready for Railway as **2 services** in one project:
-1. `backend` service (Django API)
-2. `frontend` service (Vite static preview)
+This repo is now Render-ready with `render.yaml` at project root.
 
-Add PostgreSQL in the same Railway project and link it to backend.
+Deploy as **2 services**:
+1. `taleforge-backend` (Django web service)
+2. `taleforge-frontend` (Vite static site)
 
-### Backend service (Railway)
+### Option A: Blueprint deploy (recommended)
 
-- Create service from GitHub repo
-- Set **Root Directory**: `backend`
-- Build command (auto-detected is fine):
-  - `pip install -r requirements.txt`
-- Start command:
-  - `bash start.sh`
+1. Push this repo to GitHub.
+2. In Render: `New` -> `Blueprint`.
+3. Connect your GitHub repo and deploy.
+4. Render reads `render.yaml` and creates both services.
 
-`start.sh` already does:
-- `python manage.py migrate --noinput`
-- `python manage.py collectstatic --noinput`
-- starts Gunicorn on `$PORT`
+### Option B: Manual service setup
 
-Set backend env vars:
+Backend (`backend` root):
+- Runtime: Python
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `bash start.sh`
+
+Frontend (`frontend` root):
+- Runtime: Static Site
+- Build Command: `npm ci && npm run build`
+- Publish Directory: `dist`
+- Rewrite Rule: `/* -> /index.html`
+
+### Connect existing Render PostgreSQL
+
+In your backend service environment variables, set:
 
 ```env
-DEBUG=false
-DJANGO_SECRET_KEY=<strong-random-secret>
-ALLOWED_HOSTS=.railway.app,.up.railway.app
-CORS_ALLOWED_ORIGINS=https://<your-frontend-domain>
-CSRF_TRUSTED_ORIGINS=https://<your-frontend-domain>
-FRONTEND_URL=https://<your-frontend-domain>
-SECURE_SSL_REDIRECT=true
-SECURE_HSTS_SECONDS=3600
+DATABASE_URL=<Render Postgres Internal Database URL>
 DB_SSL_REQUIRE=true
 ```
 
-### Frontend service (Railway)
+Use the **Internal Database URL** from your Render Postgres instance (`Connections` tab).
 
-- Create second service from same GitHub repo
-- Set **Root Directory**: `frontend`
-- Build command:
-  - `npm ci && npm run build`
-- Start command:
-  - `npm run start`
-
-Set frontend env var:
-
-```env
-VITE_API_BASE_URL=https://<your-backend-domain>/api
-```
-
----
-
-## Railway PostgreSQL Notes
-
-If backend is linked to Railway PostgreSQL service, Railway usually injects `DATABASE_URL` automatically.
-That is the best setup.
-
-If it is not auto-populated in backend env vars, add this variable reference manually:
-
-```env
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-```
-
-If you only have **database name + password**, that is not enough by itself to connect externally.
-You also need:
+If you only have DB name/password, it is not enough by itself. You also need:
 - host
 - port
 - username
 
-Get these from Railway Postgres service -> **Connect** tab.
-Then either:
-1. set full `DATABASE_URL`, or
-2. set `DB_NAME`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_USER`.
+### Required backend env vars on Render
 
-The backend supports both.
+```env
+DEBUG=false
+DJANGO_SECRET_KEY=<strong-random-secret>
+ALLOWED_HOSTS=.onrender.com
+RUN_MIGRATIONS_ON_START=true
+RUN_SEED_ON_DEPLOY=false
+ENABLE_DEMO_LOGIN_USERS=false
+ENABLE_GOOGLE_TRANSLATE_PROXY=true
+FRONTEND_URL=https://<your-frontend>.onrender.com
+CORS_ALLOWED_ORIGINS=https://<your-frontend>.onrender.com
+CSRF_TRUSTED_ORIGINS=https://<your-frontend>.onrender.com
+```
+
+### Required frontend env var on Render
+
+```env
+VITE_API_BASE_URL=https://<your-backend>.onrender.com/api
+```
+
+After setting frontend URL/env vars, redeploy backend once so CORS/CSRF values are active.
 
 ---
 
@@ -146,3 +144,29 @@ OPENAI_MODEL=gpt-4.1-mini
 ```
 
 If missing, AI-choice flows automatically fall back to static next nodes.
+
+## Translation Configuration
+
+Story translation is now proxied via backend (`POST /api/stories/<id>/translate/`) instead of browser-direct third-party calls.
+
+Enable one of these options:
+
+1. OpenAI translation (recommended):
+
+```env
+OPENAI_API_KEY=<your-key>
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+2. Google proxy fallback (less private, but no OpenAI key needed):
+
+```env
+ENABLE_GOOGLE_TRANSLATE_PROXY=true
+```
+
+Allowed languages are controlled by:
+
+```env
+SUPPORTED_TRANSLATION_LANGUAGES=en,hi
+```
+# TaleForge-interactive-storytelling
