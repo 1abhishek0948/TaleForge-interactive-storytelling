@@ -58,37 +58,29 @@ Frontend runs at `http://localhost:5173`.
 
 ---
 
-## Render Deployment (GitHub + Render Postgres)
+## Render Deployment (Single Docker Service + Render Postgres)
 
-This repo is now Render-ready with `render.yaml` at project root.
+This repo is now configured to run **frontend + backend in one Render web service** using:
+- root `Dockerfile` (builds React and serves it from Django)
+- root `render.yaml` (Render blueprint)
 
-Deploy as **2 services**:
-1. `taleforge-backend` (Django web service)
-2. `taleforge-frontend` (Vite static site)
+### Deploy steps
 
-### Option A: Blueprint deploy (recommended)
-
-1. Push this repo to GitHub.
+1. Push code to GitHub.
 2. In Render: `New` -> `Blueprint`.
-3. Connect your GitHub repo and deploy.
-4. Render reads `render.yaml` and creates both services.
+3. Select this repository.
+4. Render creates one web service: `taleforge`.
 
-### Option B: Manual service setup
+### Manual (without blueprint)
 
-Backend (`backend` root):
-- Runtime: Python
-- Build Command: `pip install -r requirements.txt`
-- Start Command: `bash start.sh`
-
-Frontend (`frontend` root):
-- Runtime: Static Site
-- Build Command: `npm ci && npm run build`
-- Publish Directory: `dist`
-- Rewrite Rule: `/* -> /index.html`
+- Service type: `Web Service`
+- Runtime: `Docker`
+- Dockerfile path: `./Dockerfile`
+- No separate frontend service needed.
 
 ### Connect existing Render PostgreSQL
 
-In your backend service environment variables, set:
+In `taleforge` service env vars, set:
 
 ```env
 DATABASE_URL=<Render Postgres Internal Database URL>
@@ -97,40 +89,32 @@ DB_SSL_REQUIRE=true
 
 Use the **Internal Database URL** from your Render Postgres instance (`Connections` tab).
 
-If you only have DB name/password, it is not enough by itself. You also need:
-- host
-- port
-- username
+If you only have DB name/password, that is not enough by itself. You also need host, port, and username.
 
-### Required backend env vars on Render
+### Required env vars on Render
 
 ```env
 DEBUG=false
+SERVE_FRONTEND_FROM_DJANGO=true
 DJANGO_SECRET_KEY=<strong-random-secret>
 ALLOWED_HOSTS=.onrender.com
 RUN_MIGRATIONS_ON_START=true
 RUN_SEED_ON_DEPLOY=false
 ENABLE_DEMO_LOGIN_USERS=false
 ENABLE_GOOGLE_TRANSLATE_PROXY=true
-FRONTEND_URL=https://<your-frontend>.onrender.com
-CORS_ALLOWED_ORIGINS=https://<your-frontend>.onrender.com
-CSRF_TRUSTED_ORIGINS=https://<your-frontend>.onrender.com
 ```
 
-### Required frontend env var on Render
-
-```env
-VITE_API_BASE_URL=https://<your-backend>.onrender.com/api
-```
-
-After setting frontend URL/env vars, redeploy backend once so CORS/CSRF values are active.
+No separate frontend service/env var is needed in single-service mode.
+Frontend and API are served from the same domain:
+- App: `https://<your-render-service>.onrender.com/`
+- API: `https://<your-render-service>.onrender.com/api/`
 
 ---
 
 ## Useful URLs
 
-- API docs: `https://<your-backend-domain>/api/docs/`
-- OpenAPI schema: `https://<your-backend-domain>/api/schema/`
+- API docs: `https://<your-render-service>.onrender.com/api/docs/`
+- OpenAPI schema: `https://<your-render-service>.onrender.com/api/schema/`
 
 ---
 

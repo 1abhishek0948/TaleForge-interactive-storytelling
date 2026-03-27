@@ -30,6 +30,7 @@ def csv_env(name: str, default: str = "") -> list[str]:
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-secret-key-change-me")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+SERVE_FRONTEND_FROM_DJANGO = os.getenv("SERVE_FRONTEND_FROM_DJANGO", "false").lower() == "true"
 
 if not DEBUG and (
     not SECRET_KEY
@@ -95,7 +96,7 @@ ROOT_URLCONF = "storytelling.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "frontend_dist"] if SERVE_FRONTEND_FROM_DJANGO else [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -147,6 +148,8 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+if SERVE_FRONTEND_FROM_DJANGO:
+    STATICFILES_DIRS = [BASE_DIR / "frontend_dist"]
 if HAS_WHITENOISE:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
